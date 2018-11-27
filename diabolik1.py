@@ -10,8 +10,9 @@ import dimod
 faces = ['213', '314', '423', '142', '243', '124', '413', '312']
 pieces = [2, 1, 3 , 3, 1, 4 , 4, 2, 3 , 1, 4, 2 , 2, 4, 3 , 2, 4, 1 , 4, 1, 3 , 3, 1, 2]
 pieces = [2,1,3,  4,3,1,  4,2,3,  4,2,1,  4,3,2,  2,4,1,  1,3,4,  1,2,3]
-rotnames = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7']
-indnames = ['i1', 'i2', 'i3', 'i4', 'i5', 'i6', 'i7']
+
+def createNames(base, count):
+    return [base+str(i)+'_' for i in range(count)]
 
 # Function for the constraint that two nodes with a shared edge not both select one color
 def not_all_4(i, j, v, u):
@@ -20,15 +21,29 @@ def not_all_4(i, j, v, u):
 def not_all_2(i, v):
     return not (i and v)
 
-# Valid configurations for the constraint that each node select a single color
-rotval = {(0, 0, 1), (0, 1, 0), (1, 0, 0)}
-nrotval = len(rotval)
+def if_a_and_b_then_c(a, b, c):
+    return not a or not b or c
 
-nindval = 7
-indval = set()
-for i in range(nindval):
-    value = ((0,)*i) + (1,) + ((0,)*(nindval - i - 1))
-    indval.add(value)
+def createToupleSet(nval):
+    return { ((0,)*i) + (1,) + ((0,)*(nval - i - 1)) for i in range(nval) }
+    result = set()
+    for i in range(nval):
+        value = ((0,)*i) + (1,) + ((0,)*(nval - i - 1))
+        result.add(value)
+    return result
+
+# Valid configurations for the constraint that each node select a single color
+nrotval = 3
+rotval = createToupleSet(nrotval)
+rotnames = createNames('rot', 8)
+
+nindval = 7 # 8
+indval = createToupleSet(nindval)
+indnames = createNames('ind', 8)
+
+nfaceval = 4
+faceval = createToupleSet(nfaceval)
+facenames = createNames('face', 12)
 
 # Create a binary constraint satisfaction problem
 csp = dwavebinarycsp.ConstraintSatisfactionProblem(dwavebinarycsp.BINARY)
@@ -40,9 +55,16 @@ for name in rotnames:
 for name in indnames:
     variables = [name+str(i) for i in range(nindval)]
     csp.add_constraint(indval, variables)
+for name in facenames:
+    variables = [name+str(i+1) for i in range(nfaceval)]
+    csp.add_constraint(faceval, variables)
+
+def matchingFace(face):
+    return (4 - face) if (face == 1 or face == 3) else face
 
 def faceMatch(iFace, jFace):
-    return (jFace + iFace == 4) if (iFace == 1 or iFace == 3) else (jFace == iFace)
+    return jFace == matchingFace(iFace)
+#    return (jFace + iFace == 4) if (iFace == 1 or iFace == 3) else (jFace == iFace)
 
 def face(i, iRot):
     return pieces[3 * (i % 8) + iRot % 3]
@@ -50,38 +72,38 @@ def face(i, iRot):
 def match(i, iRot, j, jRot):
     return faceMatch(face(i, iRot), face(j, jRot))
 
-def addConstraints(i, iRot, j, jRot):
+countI = [0 for i in range(len(indnames))]
+
+def addConstraints(i, iRot, j, jRot, constraintIndex):
+    facename = facenames[constraintIndex]
     indi = indnames[i]
     v = rotnames[i]
-    if j != 7:
-        indj = indnames[j]
-        u = rotnames[j]
+    indj = indnames[j]
+    u = rotnames[j]
+    countI[i] += 1
+    countI[j] += 1
     for ii in range(nindval):
-        for ij in range(8):
-            if (j == 7 and ij != 7) or (j != 7 and ij == 7):
-                continue
-            for ri in range(nrotval):
-                for rj in range(nrotval):
-                    if j == 7 and rj != 0:
-                        continue
-                    if match(ii, iRot + ri, ij, jRot + rj):
-                        continue
-                    if j == 7:
-                        variables = [indi+str(ii), v+str(ri)]
-                        csp.add_constraint(not_all_2, variables)
-                    else:
-                        variables = [indi+str(ii), indj+str(ij), v+str(ri), u+str(rj)]
-                        csp.add_constraint(not_all_4, variables)
+        for ri in range(nrotval):
+            fi = face(ii, ri + iRot)
+            fj = matchingFace(face(ii, ri + jRot))
+            variables = [indi+str(ii), v+str(ri), facename+str(fi)]
+            csp.add_constraint(if_a_and_b_then_c, variables)
+            variables = [indj+str(ii), u+str(ri), facename+str(fj)]
+            csp.add_constraint(if_a_and_b_then_c, variables)
 
+constraintIndex = 0
 for j in range(8):
     if (j & 1):
         i = ((j & 2) >> 1) ^ ((j & 4) >> 2)
-        addConstraints(j - 1, 2 - i, j, 1 + i)
+        addConstraints(j - 1, 2 - i, j, 1 + i, constraintIndex)
+        constraintIndex += 1
     if (j & 2):
         i = (j & 1) ^ ((j & 4) >> 2)
-        addConstraints(j - 2, 1 + i, j, 2 - i)
+        addConstraints(j - 2, 1 + i, j, 2 - i, constraintIndex)
+        constraintIndex += 1
     if (j & 4):
-        addConstraints(j - 4, 0, j, 0)
+        addConstraints(j - 4, 0, j, 0, constraintIndex)
+        constraintIndex += 1
 
 # Add constraint that each pair of nodes with a shared edge not both select one color
 # for neighbor in neighbors:
@@ -91,6 +113,8 @@ for j in range(8):
 #         csp.add_constraint(not_both_1, variables)
 
 # Convert the binary constraint satisfaction problem to a binary quadratic model
+print(len(csp.constraints))
+
 bqm = dwavebinarycsp.stitch(csp)
 
 # Set up a solver using the local system’s default D-Wave Cloud Client configuration file
