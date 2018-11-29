@@ -20,20 +20,29 @@ linkbits = createToupleSet(nlinks)
 
 nnodes = nlinks - 1
 nodenames = createNames('nodes', nnodes)
-nodebits = 2
+
+nnodebits = 4
+nodebits = createToupleSet(nnodebits)
 
 csp = dwavebinarycsp.ConstraintSatisfactionProblem(dwavebinarycsp.BINARY)
 
 def not_all_2(a, b):
     return not (a and b)
 
+# one value for each link
 for name in linknames:
     variables = [name+str(i) for i in range(nlinks)]
     csp.add_constraint(linkbits, variables)
 
+# all link are different
 for i in range(nlinks):
     variables = [name+str(i) for name in linknames]
     csp.add_constraint(linkbits, variables)
+
+# one value for each node
+for name in nodenames:
+    variables = [name+str(i) for i in range(nnodebits)]
+    csp.add_constraint(nodebits, variables)
 
 def create_if_a_then_bc_maps_to(v):
     v0 = v & 1
@@ -42,18 +51,21 @@ def create_if_a_then_bc_maps_to(v):
         return not a or (b == v0 and c == v1)
     return if_a_then_bc_maps_to_v
 
+def if_a_then_b(a, b):
+    return not a or b
+
 for k in range(nlinks):
     n = linknames[k]
     if k > 0:
         l = nodenames[k-1]
         for i in range(nlinks):
-            vars = [n+str(i), l+'0', l+'1']
-            csp.add_constraint(create_if_a_then_bc_maps_to(links[i][0]), vars)
+            vars = [n+str(i), l+str(links[i][0])]
+            csp.add_constraint(if_a_then_b, vars)
     if k < nnodes:
         r = nodenames[k]
         for i in range(nlinks):
-            vars = [n+str(i), r+'0', r+'1']
-            csp.add_constraint(create_if_a_then_bc_maps_to(links[i][1]), vars)
+            vars = [n+str(i), r+str(links[i][1])]
+            csp.add_constraint(if_a_then_b, vars)
 
 # for i in range(nlinks):
 #     lir = links[i][1]
@@ -85,9 +97,6 @@ print('bqm:', len(bqm))
 
 sampler = dimod.reference.samplers.SimulatedAnnealingSampler()
 response = sampler.sample(bqm)
-
-# sampler = dimod.ExactSolver()
-# response = sampler.sample(bqm)
 
 # sampler = EmbeddingComposite(DWaveSampler())         # doctest: +SKIP
 # response = sampler.sample(bqm, num_reads=4)         # doctest: +SKIP

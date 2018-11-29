@@ -27,9 +27,6 @@ def plot_map(sample):
     color_map = {}
     samples = dict(sample)
     for province in provinces:
-        #   for i in range(colors):
-        #     if sample[province+str(i)]:
-        #         color_map[province] = i
         bit0 = samples.get(province+'0', 0)
         bit1 = samples.get(province+'1', 0)
         color_map[province] = bit0 + 2 * bit1

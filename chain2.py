@@ -58,13 +58,15 @@ def create_as_number_are_smaller_than(v):
 
 variables = [[name+str(i) for i in range(linkbits)] for name in linknames]
 
-if nlinks < 2 ** linkbits:
-    constr = create_as_number_are_smaller_than(nlinks)
-    for bits in variables:
-        csp.add_constraint(constr, bits)
+constrval = create_as_number_are_smaller_than(nlinks)
+# if nlinks < 2 ** linkbits:
+#     for bits in variables:
+#         csp.add_constraint(constrval, bits)
 
 def second_half_is_different_from_first(*bits):
     n = len(bits) >> 1
+    if not constrval(*bits[:n]) or not constrval(*bits[n:]):
+        return False
     for i in range(n):
         if bits[i] != bits[n + i]:
             return True
@@ -103,6 +105,9 @@ def create_if_firsts_are_v0_then_last_two_are_v1(v0, v1):
 #                 rj = linknames[k+1]+str(j)
 #                 csp.add_constraint(not_all_2, [li,rj])
 
+print('variables+const:', len(csp.variables))
+print('constraints+const:', len(csp.constraints))
+
 l0 = linknames[0]
 r1 = linknames[nlinks-1]
 bits_r2 = get_bits(nlinks-1, linkbits)
@@ -112,6 +117,39 @@ for i in range(linkbits):
 
 print('variables:', len(csp.variables))
 print('constraints:', len(csp.constraints))
+print('constr-valid:', sum(map((lambda x: len(x.configurations)), csp.constraints)))
+print('constr-vars:', sum(map((lambda x: len(x.variables)), csp.constraints)))
+
+def nbits_are_different(*bits):
+    n = len(bits) >> 1
+    for i in range(n):
+        if bits[i] != bits[n + i]:
+            return True
+    return False
+
+csp = dwavebinarycsp.ConstraintSatisfactionProblem(dwavebinarycsp.BINARY)
+
+nvars = 5
+nbits = 2
+vars = [[str(v)+str(i) for i in range (nbits)] for v in range(nvars)]
+for i in range(nvars):
+    for j in range(i):
+        csp.add_constraint(nbits_are_different, vars[i]+vars[j])
+
+csp = dwavebinarycsp.ConstraintSatisfactionProblem(dwavebinarycsp.BINARY)
+
+def abc_not_eq_def(a,b,c,d,e,f):
+    return a != d or b != e or c != f
+# csp.add_constraint(abc_not_eq_def, ['a','b','c','d','e','f'])
+
+def all(a,b,c,d,e):
+    return a and b and c and d and e
+csp.add_constraint(all, ['a','b','c','d','e'])
+
+# def any(a,b,c,d,e):
+#     return a or b or c or d or e
+# csp.add_constraint(any, ['a','b','c','d','e'])
+
 bqm = dwavebinarycsp.stitch(csp)
 print('bqm:', len(bqm))
 

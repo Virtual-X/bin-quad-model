@@ -49,20 +49,24 @@ for i in range(nlinks-1):
     csp.fix_variable(l0+str(i+1), 0)
     csp.fix_variable(r1+str(i), 0)
 
-bqm = dwavebinarycsp.stitch(csp)
-
 print('variables:', len(csp.variables))
 print('constraints:', len(csp.constraints))
+print('constr-valid:', sum(map((lambda x: len(x.configurations)), csp.constraints)))
+print('constr-vars:', sum(map((lambda x: len(x.variables)), csp.constraints)))
+bqm = dwavebinarycsp.stitch(csp)
 print('bqm:', len(bqm))
 
 # sampler = dimod.reference.samplers.RandomSampler()
 # response = sampler.sample(bqm, num_reads=10)
 
-sampler = dimod.reference.samplers.SimulatedAnnealingSampler()
-response = sampler.sample(bqm)
+# sampler = dimod.reference.samplers.SimulatedAnnealingSampler()
+# response = sampler.sample(bqm)
+
+# sampler = dimod.ExactSolver()
+# response = sampler.sample(bqm)
 
 # sampler = EmbeddingComposite(DWaveSampler())         # doctest: +SKIP
-# response = sampler.sample(bqm, num_reads=4)         # doctest: +SKIP
+# response = sampler.sample(bqm, num_reads=50)         # doctest: +SKIP
 
 sample = next(response.samples())      # doctest: +SKIP
 if not csp.check(sample):              # doctest: +SKIP
